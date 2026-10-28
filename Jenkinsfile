@@ -13,15 +13,14 @@ pipeline {
             }
         }
 
-        stage('Build Image in Minikube Docker') {
-            steps {
-                sh '''
-                    eval $(minikube docker-env)
-                    docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
-                '''
-            }
-        }
-
+        stage('Build Image in Minikube') {
+    steps {
+        sh '''
+            set -e
+            minikube image build -t "${IMAGE_NAME}:${IMAGE_TAG}" .
+        '''
+    }
+}
         stage('Deploy to Kubernetes') {
             steps {
                 sh '''
