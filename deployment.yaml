@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: kuber-site
-          image: kuber-site:latest
-          imagePullPolicy: Never
+          image: pintaram369/kuber-site:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 80
