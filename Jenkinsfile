@@ -12,6 +12,7 @@ pipeline {
 
         stage('Checkout') {
             steps {
+                echo "Building branch: ${BRANCH_NAME}"
                 checkout scm
             }
         }
@@ -19,7 +20,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh '''
-                    docker build -t ${DOCKER_HUB_USER_NAME}/${IMAGE_NAME}:${IMAGE_TAG} .
+                    docker build -t ${DOCKER_HUB_USER_NAME}/${IMAGE_NAME}:${BRANCH_NAME}-${IMAGE_TAG} .
                 '''
             }
         }
@@ -45,19 +46,22 @@ pipeline {
         stage('Push Image to Docker Hub') {
             steps {
                 sh '''
-                    docker push ${DOCKER_HUB_USER_NAME}/${IMAGE_NAME}:${IMAGE_TAG}
+                    docker push ${DOCKER_HUB_USER_NAME}/${IMAGE_NAME}:${BRANCH_NAME}-${IMAGE_TAG}
                 '''
             }
         }
 
         stage('Deploy to Kubernetes') {
+            when {
+                branch 'main'
+            }
             steps {
                 sh '''
                     kubectl apply -f deployment.yaml
                     kubectl apply -f service.yaml
 
                     kubectl set image deployment/kuber-site \
-                        kuber-site=${DOCKER_HUB_USER_NAME}/${IMAGE_NAME}:${IMAGE_TAG}
+                        kuber-site=${DOCKER_HUB_USER_NAME}/${IMAGE_NAME}:${BRANCH_NAME}-${IMAGE_TAG}
 
                     kubectl rollout status deployment/kuber-site
                 '''
@@ -71,12 +75,11 @@ pipeline {
         }
 
         success {
-            echo "Deployment successful!"
-            echo "Image: ${DOCKER_HUB_USER_NAME}/${IMAGE_NAME}:${IMAGE_TAG}"
+            echo "Pipeline successful for branch: ${BRANCH_NAME}"
         }
 
         failure {
-            echo "Pipeline failed!"
+            echo "Pipeline failed for branch: ${BRANCH_NAME}"
         }
     }
 }
