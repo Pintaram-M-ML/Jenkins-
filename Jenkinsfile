@@ -17,10 +17,21 @@ pipeline {
             }
         }
 
+        stage('Prepare Image Tag') {
+            steps {
+                script {
+                    env.SAFE_BRANCH_NAME = env.BRANCH_NAME.replaceAll('/', '-')
+                    env.FULL_IMAGE_NAME = "${env.DOCKER_HUB_USER_NAME}/${env.IMAGE_NAME}:${env.SAFE_BRANCH_NAME}-${env.IMAGE_TAG}"
+
+                    echo "Docker Image: ${env.FULL_IMAGE_NAME}"
+                }
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
                 sh '''
-                    docker build -t ${DOCKER_HUB_USER_NAME}/${IMAGE_NAME}:${BRANCH_NAME}-${IMAGE_TAG} .
+                    docker build -t "$FULL_IMAGE_NAME" .
                 '''
             }
         }
@@ -46,7 +57,7 @@ pipeline {
         stage('Push Image to Docker Hub') {
             steps {
                 sh '''
-                    docker push ${DOCKER_HUB_USER_NAME}/${IMAGE_NAME}:${BRANCH_NAME}-${IMAGE_TAG}
+                    docker push "$FULL_IMAGE_NAME"
                 '''
             }
         }
@@ -61,7 +72,7 @@ pipeline {
                     kubectl apply -f service.yaml
 
                     kubectl set image deployment/kuber-site \
-                        kuber-site=${DOCKER_HUB_USER_NAME}/${IMAGE_NAME}:${BRANCH_NAME}-${IMAGE_TAG}
+                        kuber-site="$FULL_IMAGE_NAME"
 
                     kubectl rollout status deployment/kuber-site
                 '''
@@ -76,6 +87,7 @@ pipeline {
 
         success {
             echo "Pipeline successful for branch: ${BRANCH_NAME}"
+            echo "Image: ${FULL_IMAGE_NAME}"
         }
 
         failure {
