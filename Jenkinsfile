@@ -16,6 +16,27 @@ pipeline {
             }
         }
 
+        stage('Build & Push Image') {
+            steps {
+                retry(2) {
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: 'dockerhub-creds',
+                            usernameVariable: 'DOCKER_USER',
+                            passwordVariable: 'DOCKER_PASSWORD'
+                        )
+                    ]) {
+                        sh '''
+                            export DOCKER_BUILDKIT=0
+                            docker build -t ${DOCKER_HUB_USER_NAME}/${IMAGE_NAME}:${IMAGE_TAG} .
+                            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USER" --password-stdin
+                            docker push ${DOCKER_HUB_USER_NAME}/${IMAGE_NAME}:${IMAGE_TAG}
+                        '''
+                    }
+                }
+            }
+        }
+
         stage('Deploy to Kubernetes') {
     steps {
         sh '''
@@ -33,22 +54,6 @@ pipeline {
         '''
     }
 }
-
-        stage('Deploy to Kubernetes') {
-            steps {
-                sh '''
-                    helm upgrade --install ${RELEASE_NAME} ./kuber_helm \
-                        --namespace ${NAMESPACE} \
-                        --create-namespace \
-                        --set fullnameOverride=${RELEASE_NAME} \
-                        --set image.repository=${DOCKER_HUB_USER_NAME}/${IMAGE_NAME} \
-                        --set image.tag=${IMAGE_TAG} \
-                        --wait --timeout 5m
-
-                    kubectl rollout status deployment/${RELEASE_NAME} -n ${NAMESPACE}
-                '''
-            }
-        }
     }
 
     post {
