@@ -1,1 +1,10 @@
 minikube-linux-amd64
+
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/crash.log
+terraform/*.tfvars
+terraform/override.tf
+terraform/override.tf.json
