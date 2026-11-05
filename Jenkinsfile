@@ -84,6 +84,25 @@ stages {
         }
     }
 
+    stage('Adopt Existing Resources') {
+        steps {
+            sh '''
+                # If kuber-site resources already exist but were created outside Helm
+                # (e.g. via kubectl apply), label/annotate them so Helm can adopt
+                # them instead of failing with "invalid ownership metadata".
+                for kind in service deployment serviceaccount; do
+                    if kubectl get ${kind} ${RELEASE_NAME} -n ${NAMESPACE} >/dev/null 2>&1; then
+                        kubectl label ${kind} ${RELEASE_NAME} -n ${NAMESPACE} \
+                            app.kubernetes.io/managed-by=Helm --overwrite
+                        kubectl annotate ${kind} ${RELEASE_NAME} -n ${NAMESPACE} \
+                            meta.helm.sh/release-name=${RELEASE_NAME} \
+                            meta.helm.sh/release-namespace=${NAMESPACE} --overwrite
+                    fi
+                done
+            '''
+        }
+    }
+
     stage('Deploy to Kubernetes') {
         steps {
             sh '''
