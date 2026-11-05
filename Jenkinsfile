@@ -68,13 +68,14 @@ pipeline {
             }
             steps {
                 sh '''
-                    kubectl apply -f deployment.yaml
-                    kubectl apply -f service.yaml
+                    aws eks update-kubeconfig --name kuber-eks-cluster --region us-east-1
 
-                    kubectl set image deployment/kuber-site \
-                        kuber-site="$FULL_IMAGE_NAME"
+                    helm upgrade --install kuber-site ./kuber_helm \
+                        --namespace kuber-site --create-namespace \
+                        --set image.repository="$DOCKER_HUB_USER_NAME/$IMAGE_NAME" \
+                        --set image.tag="$SAFE_BRANCH_NAME-$IMAGE_TAG"
 
-                    kubectl rollout status deployment/kuber-site
+                    kubectl rollout status deployment/kuber-site -n kuber-site
                 '''
             }
         }
