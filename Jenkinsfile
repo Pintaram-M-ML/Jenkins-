@@ -53,11 +53,10 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 sh '''
-                    kubectl apply -f deployment.yaml
-                    kubectl apply -f service.yaml
-
-                    kubectl set image deployment/kuber-site \
-                        kuber-site=${DOCKER_HUB_USER_NAME}/${IMAGE_NAME}:${IMAGE_TAG}
+                    helm upgrade --install kuber-site ./kuber_helm \
+                        --set fullnameOverride=kuber-site \
+                        --set image.repository=${DOCKER_HUB_USER_NAME}/${IMAGE_NAME} \
+                        --set image.tag=${IMAGE_TAG}
 
                     kubectl rollout status deployment/kuber-site
                 '''
