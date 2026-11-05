@@ -1,9 +1,9 @@
 minikube-linux-amd64
 
-# Terraform
+# Terraform local files
 terraform/.terraform/
 terraform/*.tfstate
-terraform/*.tfstate.backup
+terraform/*.tfstate.*
 terraform/crash.log
 terraform/*.tfvars
 terraform/override.tf

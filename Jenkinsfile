@@ -1,64 +1,98 @@
+
 pipeline {
     agent any
 
     environment {
         DOCKER_HUB_USER_NAME = 'pintaram369'
-        IMAGE_NAME           = 'kuber-site'
-        IMAGE_TAG            = "${BUILD_NUMBER}"
-        RELEASE_NAME         = 'kuber-site'
-        NAMESPACE            = 'default'
+        IMAGE_NAME = 'kuber-site'
+        IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
     stages {
+
         stage('Checkout') {
             steps {
+                echo "Building branch: ${BRANCH_NAME}"
                 checkout scm
             }
         }
 
-        stage('Build & Push Image') {
+        stage('Prepare Image Tag') {
             steps {
-                retry(2) {
-                    withCredentials([
-                        usernamePassword(
-                            credentialsId: 'dockerhub-creds',
-                            usernameVariable: 'DOCKER_USER',
-                            passwordVariable: 'DOCKER_PASSWORD'
-                        )
-                    ]) {
-                        sh '''
-                            export DOCKER_BUILDKIT=0
-                            docker build -t ${DOCKER_HUB_USER_NAME}/${IMAGE_NAME}:${IMAGE_TAG} .
-                            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USER" --password-stdin
-                            docker push ${DOCKER_HUB_USER_NAME}/${IMAGE_NAME}:${IMAGE_TAG}
-                        '''
-                    }
+                script {
+                    env.SAFE_BRANCH_NAME = env.BRANCH_NAME.replaceAll('/', '-')
+                    env.FULL_IMAGE_NAME = "${env.DOCKER_HUB_USER_NAME}/${env.IMAGE_NAME}:${env.SAFE_BRANCH_NAME}-${env.IMAGE_TAG}"
+
+                    echo "Docker Image: ${env.FULL_IMAGE_NAME}"
                 }
             }
         }
 
-        stage('Deploy to Kubernetes') {
-    steps {
-        sh '''
-            helm upgrade --install kuber-site ./kuber_helm \
-                --namespace default \
-                --create-namespace \
-                --set fullnameOverride=kuber-site \
-                --set image.repository=${DOCKER_HUB_USER_NAME}/${IMAGE_NAME} \
-                --set image.tag=${IMAGE_TAG} \
-                --force-conflicts \
-                --wait \
-                --timeout 5m
+        stage('Build Docker Image') {
+            steps {
+                sh '''
+                    docker build -t "$FULL_IMAGE_NAME" .
+                '''
+            }
+        }
 
-            kubectl rollout status deployment/kuber-site -n default
-        '''
-    }
-}
+        stage('Login to Docker Hub') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-creds',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASSWORD'
+                    )
+                ]) {
+                    sh '''
+                        set +x
+                        echo "$DOCKER_PASSWORD" | docker login \
+                            -u "$DOCKER_USER" --password-stdin
+                    '''
+                }
+            }
+        }
+
+        stage('Push Image to Docker Hub') {
+            steps {
+                sh '''
+                    docker push "$FULL_IMAGE_NAME"
+                '''
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            when {
+                branch 'main'
+            }
+            steps {
+                sh '''
+                    aws eks update-kubeconfig --name kuber-eks-cluster --region us-east-1
+
+                    helm upgrade --install kuber-site ./kuber_helm \
+                        --namespace kuber-site --create-namespace \
+                        --set image.repository="$DOCKER_HUB_USER_NAME/$IMAGE_NAME" \
+                        --set image.tag="$SAFE_BRANCH_NAME-$IMAGE_TAG"
+
+                    kubectl rollout status deployment/kuber-site -n kuber-site
+                '''
+            }
+        }
     }
 
     post {
         always {
             sh 'docker logout || true'
+        }
+
+        success {
+            echo "Pipeline successful for branch: ${BRANCH_NAME}"
+            echo "Image: ${FULL_IMAGE_NAME}"
+        }
+
+        failure {
+            echo "Pipeline failed for branch: ${BRANCH_NAME}"
         }
     }
 }
