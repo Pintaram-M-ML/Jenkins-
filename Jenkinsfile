@@ -12,7 +12,11 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                echo "Building branch: ${BRANCH_NAME}"
+                script {
+                    def branchName = env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main'
+                    env.SOURCE_BRANCH = branchName.replaceFirst('^origin/', '')
+                    echo "Building branch: ${env.SOURCE_BRANCH}"
+                }
                 checkout scm
             }
         }
@@ -20,7 +24,7 @@ pipeline {
         stage('Prepare Image Tag') {
             steps {
                 script {
-                    env.SAFE_BRANCH_NAME = env.BRANCH_NAME.replaceAll('/', '-')
+                    env.SAFE_BRANCH_NAME = env.SOURCE_BRANCH.replaceAll('/', '-')
                     env.FULL_IMAGE_NAME = "${env.DOCKER_HUB_USER_NAME}/${env.IMAGE_NAME}:${env.SAFE_BRANCH_NAME}-${env.IMAGE_TAG}"
 
                     echo "Docker Image: ${env.FULL_IMAGE_NAME}"
@@ -64,7 +68,7 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             when {
-                branch 'main'
+                expression { env.SOURCE_BRANCH == 'main' }
             }
             steps {
                 sh '''
@@ -87,12 +91,12 @@ pipeline {
         }
 
         success {
-            echo "Pipeline successful for branch: ${BRANCH_NAME}"
-            echo "Image: ${FULL_IMAGE_NAME}"
+            echo "Pipeline successful for branch: ${env.SOURCE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'unknown'}"
+            echo "Image: ${env.FULL_IMAGE_NAME ?: 'not built'}"
         }
 
         failure {
-            echo "Pipeline failed for branch: ${BRANCH_NAME}"
+            echo "Pipeline failed for branch: ${env.SOURCE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'unknown'}"
         }
     }
 }
