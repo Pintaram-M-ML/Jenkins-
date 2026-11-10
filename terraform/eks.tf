@@ -31,11 +31,43 @@ resource "aws_eks_cluster" "this" {
     endpoint_private_access  = false
   }
 
+  access_config {
+    authentication_mode = "API_AND_CONFIG_MAP"
+  }
+
+  # This is a creation-only setting and isn't returned by EKS for existing clusters.
+  # Ignore it to avoid Terraform proposing cluster replacement when enabling access entries.
+  lifecycle {
+    ignore_changes = [
+      access_config[0].bootstrap_cluster_creator_admin_permissions
+    ]
+  }
+
   depends_on = [aws_iam_role_policy_attachment.eks_cluster_policy]
 
   tags = {
     Name = var.eks_cluster_name
   }
+}
+
+# Allow Jenkins to manage application resources only in its deployment namespace.
+resource "aws_eks_access_entry" "jenkins" {
+  cluster_name  = aws_eks_cluster.this.name
+  principal_arn = aws_iam_role.jenkins_role.arn
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "jenkins" {
+  cluster_name  = aws_eks_cluster.this.name
+  principal_arn = aws_iam_role.jenkins_role.arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSEditPolicy"
+
+  access_scope {
+    type       = "namespace"
+    namespaces = ["kuber-site"]
+  }
+
+  depends_on = [aws_eks_access_entry.jenkins]
 }
 
 # Node group IAM role

@@ -66,20 +66,25 @@ pipeline {
             }
         }
 
-        stage('Deploy to Kubernetes') {
+        stage('Deploy to Minikube') {
             when {
                 expression { env.SOURCE_BRANCH == 'main' }
             }
             steps {
                 sh '''
-                    aws eks update-kubeconfig --name kuber-eks-cluster --region us-east-1
+                    minikube status --profile minikube
+                    minikube update-context --profile minikube
+                    kubectl config use-context minikube
+                    kubectl get nodes
 
                     helm upgrade --install kuber-site ./kuber_helm \
+                        --kube-context minikube \
                         --namespace kuber-site --create-namespace \
                         --set image.repository="$DOCKER_HUB_USER_NAME/$IMAGE_NAME" \
                         --set image.tag="$SAFE_BRANCH_NAME-$IMAGE_TAG"
 
-                    kubectl rollout status deployment/kuber-site -n kuber-site
+                    kubectl --context=minikube rollout status \
+                        deployment/kuber-site -n kuber-site
                 '''
             }
         }
