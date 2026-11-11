@@ -35,12 +35,12 @@ pipeline {
                 sh '''
                     helm upgrade --install kuber-site ./kuber_helm \
                         --kube-context minikube \
-                        --namespace stage --create-namespace \
+                        --namespace testing --create-namespace \
                         --set image.repository="$IMAGE" \
                         --set image.tag="$IMAGE_TAG"
 
                     kubectl --context=minikube rollout status \
-                        deployment/kuber-site -n stage
+                        deployment/kuber-site -n testing
                 '''
 
                 
