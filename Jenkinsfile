@@ -28,20 +28,22 @@ pipeline {
 
         stage('Deploy to Minikube') {
              when {
-                    branch 'main'
+                    branch 'stage'
                 }
             steps {
                
                 sh '''
                     helm upgrade --install kuber-site ./kuber_helm \
                         --kube-context minikube \
-                        --namespace kuber-site --create-namespace \
+                        --namespace stage --create-namespace \
                         --set image.repository="$IMAGE" \
                         --set image.tag="$IMAGE_TAG"
 
                     kubectl --context=minikube rollout status \
-                        deployment/kuber-site -n kuber-site
+                        deployment/kuber-site -n stage
                 '''
+
+                
             }
         }
     }
