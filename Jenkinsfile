@@ -27,10 +27,11 @@ pipeline {
         }
 
         stage('Deploy to Minikube') {
-            steps {
-                when {
+             when {
                     branch 'main'
                 }
+            steps {
+               
                 sh '''
                     helm upgrade --install kuber-site ./kuber_helm \
                         --kube-context minikube \
