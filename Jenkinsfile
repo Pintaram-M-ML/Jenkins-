@@ -50,7 +50,7 @@ pipeline {
 
     post {
         always {
-            sh 'docker logout || true'
+            echo 'docker logout || true'
         }
     }
 }
