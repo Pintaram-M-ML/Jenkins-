@@ -28,7 +28,7 @@ pipeline {
 
         stage('Deploy to Minikube') {
              when {
-                    branch 'stage'
+                    branch 'testing'
                 }
             steps {
                
