@@ -26,6 +26,20 @@ pipeline {
             }
         }
 
+        stage('Production Approval') {
+    steps {
+        script {
+            timeout(time: 30, unit: 'MINUTES') {
+                input(
+                    message: "Deploy ${IMAGE}:${IMAGE_TAG} to PRODUCTION?",
+                    ok: 'Approve Deployment',
+                    submitter: 'admin',
+                    submitterParameter: 'APPROVED_BY'
+                )
+            }
+        }
+    }
+}
         stage('Deploy to Minikube') {
              when {
                     branch 'testing'
